@@ -6,9 +6,47 @@
     <title>红利低波100指数股息率监控</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; margin: 20px; background-color: #f5f5f7; }
-        #main { width: 100%; height: 500px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); box-sizing: border-box; }
-        h2 { text-align: center; color: #1d1d1f; }
+        /* 1. 默认浅色模式变量 */
+        :root {
+            --bg-color: #f5f5f7;
+            --card-bg: #ffffff;
+            --text-color: #1d1d1f;
+            --shadow: rgba(0, 0, 0, 0.05);
+        }
+
+        /* 2. 自动跟随系统的深色模式变量 */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #1c1c1e;
+                --card-bg: #2c2c2e;
+                --text-color: #f5f5f7;
+                --shadow: rgba(0, 0, 0, 0.3);
+            }
+        }
+
+        body { 
+            font-family: -apple-system, sans-serif; 
+            margin: 20px; 
+            background-color: var(--bg-color); 
+            transition: background-color 0.3s ease;
+        }
+        
+        #main { 
+            width: 100%; 
+            height: 500px; 
+            background: var(--card-bg); 
+            padding: 20px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 12px var(--shadow); 
+            box-sizing: border-box;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        h2 { 
+            text-align: center; 
+            color: var(--text-color); 
+            transition: color 0.3s ease;
+        }
     </style>
 </head>
 <body>
@@ -17,58 +55,93 @@
     <div id="main"></div>
 
     <script>
+        let myChart = null;
+        let chartData = null;
+
+        // 判断系统当前是否是深色模式
+        const isDarkMode = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+        // 核心渲染函数
+        function renderChart(data) {
+            const dates = data.map(item => item['日期Date'].toString().replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3'));
+            const dp1 = data.map(item => item['股息率1（总股本）D/P1']);
+            const dp2 = data.map(item => item['股息率2（计算用股本）D/P2']);
+
+            // 如果已经存在图表实例，先销毁它，以便干净地切换深浅色主题
+            if (myChart) {
+                myChart.dispose();
+            }
+
+            // 根据系统模式，让 ECharts 载入内置的 'dark' 主题或默认浅色主题
+            const currentTheme = isDarkMode() ? 'dark' : null;
+            myChart = echarts.init(document.getElementById('main'), currentTheme);
+
+            // 针对深色模式和浅色模式，微调图表的背景色与文字网格颜色
+            const themeConfigs = isDarkMode() ? {
+                backgroundColor: '#2c2c2e', // 与卡片背景保持一致
+                gridColor: '#444446',
+                textColor: '#aeaeae'
+            } : {
+                backgroundColor: '#ffffff',
+                gridColor: '#e5e5ea',
+                textColor: '#333333'
+            };
+
+            const option = {
+                backgroundColor: themeConfigs.backgroundColor,
+                tooltip: { 
+                    trigger: 'axis', 
+                    backgroundColor: isDarkMode() ? 'rgba(44, 44, 46, 0.96)' : 'rgba(255, 255, 255, 0.96)',
+                    textStyle: { color: isDarkMode() ? '#fff' : '#000' }
+                },
+                legend: { data: ['股息率1 (总股本)', '股息率2 (计算股本)'], bottom: 0 },
+                grid: { left: '3%', right: '4%', bottom: '10%', containLabel: true },
+                xAxis: { 
+                    type: 'category', 
+                    data: dates, 
+                    boundaryGap: false,
+                    axisLabel: { interval: 0 } // 上一轮加的，确保20个点全显示
+                },
+                yAxis: { 
+                    type: 'value', 
+                    axisLabel: { formatter: '{value} %' }, 
+                    splitLine: { lineStyle: { color: themeConfigs.gridColor } }, // 网格线颜色自适应
+                    min: function (value) {
+                        return (Math.floor(value.min * 10) / 10 - 0.1).toFixed(2);
+                    },
+                    max: function (value) {
+                        return (Math.ceil(value.max * 10) / 10 + 0.1).toFixed(2);
+                    },
+                    interval: 0.1,
+                },
+                series: [
+                    { name: '股息率1 (总股本)', type: 'line', data: dp1, smooth: true, itemStyle: { color: '#ff4d4f' } },
+                    { name: '股息率2 (计算股本)', type: 'line', data: dp2, smooth: true, itemStyle: { color: '#1890ff' } }
+                ]
+            };
+
+            myChart.setOption(option);
+        }
+
         // 1. 异步读取本地的 data.json 文件
         fetch('data.json')
             .then(response => response.json())
             .then(data => {
-                // 2. 解析数据给图表使用
-                const dates = data.map(item => item['日期Date'].toString().replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3'));
-                const dp1 = data.map(item => item['股息率1（总股本）D/P1']);
-                const dp2 = data.map(item => item['股息率2（计算用股本）D/P2']);
-
-                // 3. 初始化 ECharts 实例
-                const myChart = echarts.init(document.getElementById('main'));
-
-                // 4. 配置图表参数
-                const option = {
-                    tooltip: { trigger: 'axis', backgroundColor: 'rgba(255, 255, 255, 0.96)' },
-                    legend: { data: ['股息率1 (总股本)', '股息率2 (计算股本)'], bottom: 0 },
-                    grid: { left: '3%', right: '4%', bottom: '10%', containLabel: true },
-                    xAxis: { type: 'category', data: dates, boundaryGap: false },
-                    yAxis: { 
-                        type: 'value', 
-                        axisLabel: { formatter: '{value} %' }, 
-                        
-                        // 1. 动态计算最小值：向下寻找最近的 0.1 整数倍，并额外多留 0.1 的安全距离
-                        min: function (value) {
-                            // 例如：4.73 -> Math.floor(47.3)/10 -> 4.7 -> 再减 0.1 = 4.6
-                            return (Math.floor(value.min * 10) / 10 - 0.1).toFixed(2);
-                        },
-                        
-                        // 2. 动态计算最大值：向上寻找最近的 0.1 整数倍，并额外多留 0.1 的安全距离
-                        max: function (value) {
-                            // 例如：5.43 -> Math.ceil(54.3)/10 -> 5.5 -> 再加 0.1 = 5.6
-                            return (Math.ceil(value.max * 10) / 10 + 0.1).toFixed(2);
-                        },
-                        
-                        // 3. 核心：强制规定 Y 轴每隔 0.1% 生成一条刻度线和网格线
-                        interval: 0.1,
-                        
-                        // 4. 可选优化：如果你觉得 0.1 导致横线太多太密，可以把 interval 改成 0.2
-                        // interval: 0.2, 
-                    },
-                    series: [
-                        { name: '股息率1 (总股本)', type: 'line', data: dp1, smooth: true, itemStyle: { color: '#ff4d4f' } },
-                        { name: '股息率2 (计算股本)', type: 'line', data: dp2, smooth: true, itemStyle: { color: '#1890ff' } }
-                    ]
-                };
-
-                // 5. 渲染图表
-                myChart.setOption(option);
-
-                // 响应式自适应屏幕大小
-                window.addEventListener('resize', myChart.resize);
+                chartData = data; // 缓存数据以便后续切换主题时使用
+                renderChart(chartData);
             });
+
+        // 2. 响应式自适应屏幕大小
+        window.addEventListener('resize', () => {
+            if (myChart) myChart.resize();
+        });
+
+        // 3. 核心细节：监听系统的深浅色模式切换事件，实现无需刷新网页实时变色
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+            if (chartData) {
+                renderChart(chartData);
+            }
+        });
     </script>
 </body>
 </html>
