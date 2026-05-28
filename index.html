@@ -35,7 +35,28 @@
                     legend: { data: ['股息率1 (总股本)', '股息率2 (计算股本)'], bottom: 0 },
                     grid: { left: '3%', right: '4%', bottom: '10%', containLabel: true },
                     xAxis: { type: 'category', data: dates, boundaryGap: false },
-                    yAxis: { type: 'value', axisLabel: { formatter: '{value} %' }, min: 'dataMin' },
+                    yAxis: { 
+                        type: 'value', 
+                        axisLabel: { formatter: '{value} %' }, 
+                        
+                        // 1. 动态计算最小值：向下寻找最近的 0.1 整数倍，并额外多留 0.1 的安全距离
+                        min: function (value) {
+                            // 例如：4.73 -> Math.floor(47.3)/10 -> 4.7 -> 再减 0.1 = 4.6
+                            return (Math.floor(value.min * 10) / 10 - 0.1).toFixed(2);
+                        },
+                        
+                        // 2. 动态计算最大值：向上寻找最近的 0.1 整数倍，并额外多留 0.1 的安全距离
+                        max: function (value) {
+                            // 例如：5.43 -> Math.ceil(54.3)/10 -> 5.5 -> 再加 0.1 = 5.6
+                            return (Math.ceil(value.max * 10) / 10 + 0.1).toFixed(2);
+                        },
+                        
+                        // 3. 核心：强制规定 Y 轴每隔 0.1% 生成一条刻度线和网格线
+                        interval: 0.1,
+                        
+                        // 4. 可选优化：如果你觉得 0.1 导致横线太多太密，可以把 interval 改成 0.2
+                        // interval: 0.2, 
+                    },
                     series: [
                         { name: '股息率1 (总股本)', type: 'line', data: dp1, smooth: true, itemStyle: { color: '#ff4d4f' } },
                         { name: '股息率2 (计算股本)', type: 'line', data: dp2, smooth: true, itemStyle: { color: '#1890ff' } }
