@@ -106,19 +106,27 @@
                     axisLabel: { formatter: '{value} %' }, 
                     splitLine: { lineStyle: { color: themeConfigs.gridColor } }, 
                     
-                    // 1. 动态计算最小值
+                    // 1. 最小值保底策略：默认 4.0，如果数据跌破 4.0 则改用动态计算
                     min: function (value) {
-                        // 先给最小值加一个极小的偏移量 0.01，再向下寻找最近的 0.1 倍
-                        return (Math.floor((value.min - 0.01) * 10) / 10).toFixed(2);
+                        // 如果数据最小值大于等于 4.0，就直接返回 4.0
+                        if (value.min >= 4.0) {
+                            return '4.00';
+                        } else {
+                            // 如果数据跌破 4.0，则执行原有的动态向下取整魔法
+                            return (Math.floor((value.min - 0.01) * 10) / 10).toFixed(2);
+                        }
                     },
                     
-                    // 2. 动态计算最大值
+                    // 2. 最大值兜底策略：默认 5.0，如果数据突破 5.0 则改用动态计算
                     max: function (value) {
-                        // 先给最大值加一个极小的偏移量 0.01，再向上寻找最近的 0.1 倍
-                        return (Math.ceil((value.max + 0.01) * 10) / 10).toFixed(2);
+                        // 如果数据最大值小于等于 5.0，就直接返回 5.0
+                        if (value.max <= 5.0) {
+                            return '5.00';
+                        } else {
+                            // 如果数据突破 5.0，则执行原有的动态向上取整魔法
+                            return (Math.ceil((value.max + 0.01) * 10) / 10).toFixed(2);
+                        }
                     },
-                    
-                    interval: 0.1,
                 },
                 series: [
                     { name: '股息率1 (总股本)', type: 'line', data: dp1, smooth: true, itemStyle: { color: '#ff4d4f' } },
