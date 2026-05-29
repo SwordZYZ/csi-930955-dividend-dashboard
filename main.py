@@ -15,7 +15,7 @@ from openpyxl import Workbook
 
 # 1. 定义配置
 url = "https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/file/autofile/indicator/930955indicator.xls"
-output_file = "930955Indicator.xlsx"
+output_file = "930955indicator.xlsx"
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 }
