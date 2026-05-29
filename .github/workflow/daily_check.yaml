@@ -1,0 +1,33 @@
+name: Daily Dividend Rate Fetcher
+
+on:
+  schedule:
+    # 国际标准时间 (UTC) 10:30 等于 北京时间 (UTC+8) 18:30
+    - cron: '30 10 * * *'
+  workflow_dispatch: # 允许你在 GitHub 页面上手动点击按钮触发运行
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: "latest"
+
+    - name: Run Python Script
+      run: |
+        uv run main.py
+
+    - name: Commit and Push changes
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add 930955Indicator.xlsx data.json
+        # 只有在文件有变动（更新了新日期）时才提交，避免报错
+        git diff-index --quiet HEAD || git commit -m "Update daily indicator data"
+        git push
