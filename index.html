@@ -94,7 +94,14 @@
                     backgroundColor: isDarkMode() ? 'rgba(44, 44, 46, 0.96)' : 'rgba(255, 255, 255, 0.96)',
                     textStyle: { color: isDarkMode() ? '#fff' : '#000' }
                 },
-                legend: { data: ['股息率1 (总股本)', '股息率2 (计算股本)'], bottom: 0 },
+                legend: { 
+                    data: ['股息率1 (总股本)', '股息率2 (计算股本)'], 
+                    bottom: 0,
+                    selected: {
+                        '股息率1 (总股本)': false,  // 默认不显示（置灰状态）
+                        '股息率2 (计算股本)': true    // 默认显示
+                    }
+                },
                 grid: { left: '3%', right: '4%', bottom: '10%', containLabel: true },
                 xAxis: { 
                     type: 'category', 
@@ -129,8 +136,24 @@
                     },
                 },
                 series: [
-                    { name: '股息率1 (总股本)', type: 'line', data: dp1, smooth: true, itemStyle: { color: '#ff4d4f' } },
-                    { name: '股息率2 (计算股本)', type: 'line', data: dp2, smooth: true, itemStyle: { color: '#1890ff' } }
+                    { 
+                        name: '股息率1 (总股本)', 
+                        type: 'line', 
+                        data: dp1, 
+                        smooth: false,       // 👈 改为 false，变成硬朗的折线
+                        showSymbol: true,    // 👈 开启数据点小圆点
+                        symbolSize: 5,       // 圆点大小
+                        itemStyle: { color: '#ff4d4f' } 
+                    },
+                    { 
+                        name: '股息率2 (计算股本)', 
+                        type: 'line', 
+                        data: dp2, 
+                        smooth: false,       // 👈 改为 false
+                        showSymbol: true,    // 👈 开启数据点小圆点
+                        symbolSize: 5,
+                        itemStyle: { color: '#1890ff' } 
+                    }
                 ]
             };
 
