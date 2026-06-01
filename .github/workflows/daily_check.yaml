@@ -2,8 +2,8 @@ name: Daily Dividend Rate Fetcher
 
 on:
   schedule:
-    # 国际标准时间 (UTC) 10:18 等于 北京时间 (UTC+8) 18:18
-    - cron: '18 10 * * *'
+    # 国际标准时间 (UTC) 11:18 等于 北京时间 (UTC+8) 19:18
+    - cron: '18 11 * * *'
   workflow_dispatch: # 允许你在 GitHub 页面上手动点击按钮触发运行
 
 jobs:
