@@ -1,8 +1,8 @@
 name: Daily Dividend Rate Fetcher
 
 on:
-  schedule:
-    - cron: '0 */1 * * *'
+  # schedule:
+  #   - cron: '0 */1 * * *'
   workflow_dispatch: # 允许手动触发
 
 jobs:
