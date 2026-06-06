@@ -171,7 +171,13 @@
                 xAxis: { 
                     type: 'category', 
                     data: dates, 
-                    boundaryGap: false
+                    boundaryGap: false,
+                    axisLabel: {
+                        // interval: 0,
+                        rotate: 45,       // 🎯 微微倾斜 30 度，完美容纳 T-20 的所有文字
+                        margin: 12,       // 标签和轴线的距离，防止挤压
+                        hideOverlap: true // 如果实在太窄，自动防重叠（它会优先保留最后触发的那个）
+                    }
                 },
                 yAxis: { 
                     type: 'value', 
