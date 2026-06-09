@@ -7,94 +7,72 @@
 # ]
 # ///
 import os
-import io
-import requests
-import pandas as pd
-from openpyxl import load_workbook
-from openpyxl import Workbook
+import json
+from fetcher.csi_930955_indicator import fetch_csi_930955_list
+from fetcher.us10ytip_indicator import fetch_us10ytip_list
 
-# 1. 定义配置
-url = "https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/file/autofile/indicator/930955indicator.xls"
-output_file = "930955indicator.xlsx"
-headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-}
+# 🚀 配置文件路径（都在项目根目录下）
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_JSON_PATH = os.path.join(CURRENT_DIR, "data.json")
 
-try:
-    print("正在获取最新数据...")
-    # 2. 抓取中证官网数据
-    response = requests.get(url, headers=headers, timeout=15)
-    response.raise_for_status()
+def main():
+    print("================ 监控看板自动化流水线启动 ================")
     
-    # 读取下载的 .xls 文件
-    df_web = pd.read_excel(io.BytesIO(response.content))
-    
-    if df_web.empty:
-        print("未能在网上获取到有效数据。")
-        exit()
-        
-    # 获取第一行数据的具体值（转化为列表，保持顺序与表头一致）
-    headers_list = df_web.columns.tolist()
-    latest_row_values = df_web.iloc[0].tolist()
-    
-    current_date = latest_row_values[0] # 获取当前抓取数据的日期
-    print(f"成功获取到 {current_date} 的数据。")
-
-    # 3. 写入/插入到本地的 Excel 文件
-    if os.path.exists(output_file):
-        print(f"发现本地文件 {output_file}，正在插入到第二行...")
-        
-        # 加载已有工作簿
-        wb = load_workbook(output_file)
-        ws = wb.active
-        
-        # 检查是否已经存在该日期的数据，防止重复插入
-        date_exists = False
-        # 遍历第二行及之后第一列的日期（假设第一列是日期）
-        for row in range(2, ws.max_row + 1):
-            if str(ws.cell(row=row, column=1).value) == str(current_date):
-                date_exists = True
-                break
-        
-        if date_exists:
-            print(f"提示：本地文件中已存在日期为 {current_date} 的数据，跳过插入，避免重复。")
-        else:
-            # 在第二行（idx=2）位置插入一个空行
-            ws.insert_rows(idx=2, amount=1)
-            
-            # 将最新的数据写入到刚刚插入的第二行中
-            for col_idx, value in enumerate(latest_row_values, start=1):
-                ws.cell(row=2, column=col_idx, value=value)
-                
-            wb.save(output_file)
-            print("数据成功插入到第二行！")
-            
+    # ------------------ 第一步：加载或初始化 data.json ------------------
+    if os.path.exists(DATA_JSON_PATH):
+        try:
+            with open(DATA_JSON_PATH, "r", encoding="utf-8") as f:
+                master_data = json.load(f)
+            print("📖 成功读取本地既有 data.json 数据库。")
+        except Exception as e:
+            print(f"⚠️ 读取 data.json 失败 (可能文件损坏)，将初始化新字典。原因: {e}")
+            master_data = {}
     else:
-        print(f"本地未找到 {output_file}，将自动创建并写入数据...")
-        # 如果文件不存在，直接用 pandas 创建一个全新的文件
-        wb = Workbook()
-        ws = wb.active
-        # 写入表头
-        ws.append(headers_list)
-        # 写入第一行数据
-        ws.append(latest_row_values)
-        wb.save(output_file)
-        print(f"新文件 {output_file} 创建并写入成功！")
+        print("🆕 未发现本地 data.json，将自动创建全新的数据大字典盒子。")
+        master_data = {}
 
-except Exception as e:
-    print(f"执行过程中发生错误: {e}")
+    # 如果读取出来的不是字典结构，强制重置为字典，确保容器安全
+    if not isinstance(master_data, dict):
+        master_data = {}
 
-# 顺便把整个更新后的 Excel 转换为网页最喜欢的 JSON 格式
-# 注意：为了让图表从左到右按时间正序排列，我们需要把倒序的 Excel 翻转一下 (.iloc[::-1])
-df_local = pd.read_excel(output_file)
+    # ------------------ 第二步：并发抓取 ------------------
+    
+    # 1. 抓取红利低波 100 历史 List (默认取 20 天)
+    print("\n--- [任务 1/2] 抓取红利低波 100 指数数据 ---")
+    csi_data_list = fetch_csi_930955_list(limit_days=20)
+    
+    # 2. 抓取美债实际利率历史 List (默认取 20 天)
+    # 密码由于写了 os.getenv，会完美自动读取你 UNRAID 容器或环境里的 FRED_API_KEY
+    print("\n--- [任务 2/2] 抓取圣路易斯联储 FRED 美债数据 ---")
+    fred_data_list = fetch_us10ytip_list(api_key="8564bbe541091fb29e8fbc237380b2aa", days_limit=20)
 
-# 2使用 .head(20) 只获取最新的 20 条数据
-# 然后使用 .iloc[::-1] 将其翻转，使得图表在网页上从左到右按时间正序排列
-df_json = df_local.head(20).iloc[::-1]
+    # ------------------ 第三步：数据更新替换 ------------------
+    print("\n--- 正在汇总所有 List ---")
+    
+    # 核心爽点：即使 csi 或 fred 某一路因为网络波动临时断流吐了空列表 []
+    # 我们也做个安全的非空校验，只有成功抓到数据时才覆盖，防止把老历史冲洗掉，自愈性拉满！
+    if csi_data_list:
+        master_data["csi930955"] = csi_data_list
+        print(f"✅ [红利低波100] 数据成功抓取，共 {len(csi_data_list)} 条记录。")
+    else:
+        print("⚠️ [红利低波100] 本次抓取列表为空，保留上一次的历史缓存，不进行覆盖。")
 
-# 只保留网页图表需要的列，减少文件体积：日期、股息率1、股息率2
-df_json = df_json[['日期Date', '股息率1（总股本）D/P1', '股息率2（计算用股本）D/P2']]
+    if fred_data_list:
+        master_data["us10ytip"] = fred_data_list
+        print(f"✅ [美债利率] 数据成功抓取，共 {len(fred_data_list)} 条记录。")
+    else:
+        print("⚠️ [美债利率] 本次抓取列表为空，保留上一次的历史缓存，不进行覆盖。")
 
-# 导出为 json 文件
-df_json.to_json("data.json", orient="records", force_ascii=False)
-print("本地 data.json 数据同步更新成功！")
+    # ------------------ 第四步：写回本地 ------------------
+    try:
+        with open(DATA_JSON_PATH, "w", encoding="utf-8") as f:
+            # ensure_ascii=False 保持中文“股息率”非乱码，indent=2 保持 JSON 优美可读
+            json.dump(master_data, f, ensure_ascii=False, indent=2)
+        print(f"\n🎉 所有指标已成功抓取并写入字典: {DATA_JSON_PATH}")
+    except Exception as e:
+        print(f"\n❌ 写入 data.json 致命错误: {e}")
+
+    print("========================= 流水线结束 =========================")
+
+if __name__ == "__main__":
+    main()

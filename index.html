@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>红利低波100指数股息率监控</title>
+    <title>宏观与特定资产指标监控</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
-        /* 1. 默认浅色模式变量 */
+        /* 1. 全局设计变量 */
         :root {
             --bg-color: #f5f5f7;
             --card-bg: #ffffff;
@@ -14,10 +14,12 @@
             --sub-text: #86868b;
             --shadow: rgba(0, 0, 0, 0.05);
             --kpi-bg: #f5f5f7;
-            --accent-color: #1890ff; /* 股息率2的蓝色 */
+            
+            /* 🎯 预设两路资产的专属高亮色彩 */
+            --csi-color: #1890ff;  /* 蓝 */
+            --fred-color: #52c41a; /* 绿 */
         }
 
-        /* 2. 自动跟随系统的深色模式变量 */
         @media (prefers-color-scheme: dark) {
             :root {
                 --bg-color: #1c1c1e;
@@ -30,13 +32,12 @@
         }
 
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Arial", "Microsoft YaHei", "PingFang SC", sans-serif; 
             margin: 20px; 
             background-color: var(--bg-color); 
             transition: background-color 0.3s ease;
         }
         
-        /* 整体容器 */
         .container {
             max-width: 1000px;
             margin: 0 auto;
@@ -47,48 +48,80 @@
             color: var(--text-color); 
             margin-top: 10px;
             margin-bottom: 25px;
-            font-size: 30px;       /* 👈 放大到 36px，确立绝对的视觉第一主权 */
-            font-weight: 700;       /* 👈 加粗字重 */
-            letter-spacing: -0.5px; /* 紧凑的高级感 */
-            transition: color 0.3s ease;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
         }
 
-        /* 3. 新增：今日最新数据高亮卡片排版 */
-        .kpi-container {
+        /* 2. 顶置高阶选项卡（Tabs切换卡片） */
+        .tabs-container {
             display: flex;
             justify-content: center;
+            gap: 15px;
             margin-bottom: 25px;
         }
 
-        .kpi-card {
+        .tab-card {
             background-color: var(--card-bg);
-            padding: 15px 40px;
+            padding: 14px 24px;
             border-radius: 16px;
             box-shadow: 0 4px 12px var(--shadow);
             text-align: center;
-            transition: background-color 0.3s ease, box-shadow 0.3s ease;
-            min-width: 260px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            min-width: 220px;
+            border: 2px solid transparent;
         }
 
-        .kpi-title {
-            font-size: 16px;
+        /* 🎯 优化点 1：红利低波激活时使用蓝色方案 */
+        .tab-card.active.csi-style {
+            border-color: var(--csi-color);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(24, 144, 255, 0.15);
+        }
+        .tab-card.active.csi-style .title-text {
+            color: var(--csi-color);
+        }
+
+        /* 🎯 优化点 1：美债实际利率激活时使用绿色方案 */
+        .tab-card.active.fred-style {
+            border-color: var(--fred-color);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(82, 196, 26, 0.15);
+        }
+        .tab-card.active.fred-style .title-text {
+            color: var(--fred-color);
+        }
+
+        /* 🎯 优化点 2：完美的字体字号三级分层 */
+        .title-text {
+            display: block;      /* 独占一行实现自然换行 */
+            font-size: 14px;     /* 👈 资产名称：比日期大，比数值小 */
+            color: var(--text-color);
+            font-weight: 600;
+            margin-bottom: 2px;
+            transition: color 0.3s;
+        }
+        
+        .date-text {
+            display: block;      /* 独占一行实现自然换行 */
+            font-size: 11px;     /* 👈 最小字号：浅灰色日期 */
             color: var(--sub-text);
+            font-weight: 400;
             margin-bottom: 8px;
-            font-weight: 500;
-            letter-spacing: 0.5px;
         }
 
-        .kpi-value {
-            font-size: 24px;
+        .tab-value {
+            font-size: 22px;     /* 👈 最大字号：展示最醒目的最新数值 */
             font-weight: 700;
-            color: var(--accent-color);
-            font-family: sf-pro-display, -apple-system, "SF Mono", Monaco, monospace;
+            color: var(--text-color);
+            font-family: sf-pro-display, -apple-system, "SF Mono", Monaco, monospace, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
         }
 
-        /* 4. 图表容器 */
+        /* 3. 图表骨架容器 */
         #main { 
             width: 100%; 
-            height: 500px; 
+            height: 520px; 
             background: var(--card-bg); 
             padding: 20px; 
             border-radius: 16px; 
@@ -101,40 +134,51 @@
 <body>
 
     <div class="container">
-        <h2>红利低波100股息率趋势（T-20）</h2>
+        <h2 id="page-title">红利低波100股息率趋势</h2>
         
-        <div class="kpi-container">
-            <div class="kpi-card">
-                <div class="kpi-title" id="latest-date">最新交易日：数据加载中...</div>
-                <div class="kpi-value" id="latest-value">-- %</div>
+        <div class="tabs-container">
+            <div class="tab-card active csi-style" id="tab-csi" onclick="switchTab('csi')">
+                <span class="title-text">红利低波 100 股息率</span>
+                <span class="date-text" id="csi-date">加载中...</span>
+                <div class="tab-value" id="csi-val">-- %</div>
+            </div>
+            <div class="tab-card" id="tab-fred" onclick="switchTab('fred')">
+                <span class="title-text">美债 10 年实际利率</span>
+                <span class="date-text" id="fred-date">加载中...</span>
+                <div class="tab-value" id="fred-val">-- %</div>
             </div>
         </div>
 
         <div id="main"></div>
     </div>
 
-    <script>
+    <script {nonce}>
         let myChart = null;
-        let chartData = null;
+        let globalData = null;
+        let currentTab = 'csi'; 
 
         const isDarkMode = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        // 日期无损格式化
+        const parseDate = (dateStr) => dateStr.toString().replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3');
 
-        function renderChart(data) {
-            const dates = data.map(item => item['日期Date'].toString().replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3'));
-            const dp1 = data.map(item => item['股息率1（总股本）D/P1']);
-            const dp2 = data.map(item => item['股息率2（计算用股本）D/P2']);
-
-            // ================= 核心细节修改：动态填充上方卡片数据 =================
-            if (data && data.length > 0) {
-                const latestItem = data[data.length - 1]; // 获取最新一天的数据
-                const formattedDate = latestItem['日期Date'].toString().replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3');
-                const latestDp2 = latestItem['股息率2（计算用股本）D/P2'].toFixed(2);
-                
-                // 修改 DOM 元素的文本
-                document.getElementById('latest-date').innerText = `${formattedDate} 股息率(计算股本)`;
-                document.getElementById('latest-value').innerText = `${latestDp2}%`;
+        function updateKpiCards(data) {
+            // 1. 组装红利低波卡片组件
+            if (data.csi930955 && data.csi930955.length > 0) {
+                const latestCsi = data.csi930955[data.csi930955.length - 1];
+                document.getElementById('csi-date').innerText = parseDate(latestCsi['日期Date']);
+                document.getElementById('csi-val').innerText = `${latestCsi['股息率2（计算用股本）D/P2'].toFixed(2)}%`;
             }
-            // ===================================================================
+            // 2. 组装美债实际利率卡片组件 (对接美债利率Rate)
+            if (data.us10ytip && data.us10ytip.length > 0) {
+                const latestFred = data.us10ytip[data.us10ytip.length - 1];
+                document.getElementById('fred-date').innerText = parseDate(latestFred['日期Date']);
+                document.getElementById('fred-val').innerText = `${latestFred['美债利率Rate'].toFixed(2)}%`;
+            }
+        }
+
+        function renderChart() {
+            if (!globalData) return;
 
             if (myChart) {
                 myChart.dispose();
@@ -151,64 +195,103 @@
                 gridColor: '#e5e5ea',
             };
 
-            const option = {
+            let option = {
                 backgroundColor: themeConfigs.backgroundColor,
                 tooltip: { 
                     trigger: 'axis', 
                     backgroundColor: isDarkMode() ? 'rgba(44, 44, 46, 0.96)' : 'rgba(255, 255, 255, 0.96)',
                     textStyle: { color: isDarkMode() ? '#fff' : '#000' }
                 },
-                // 已经改好的默认不显示股息率1
-                legend: { 
-                    data: ['股息率1 (总股本)', '股息率2 (计算股本)'], 
-                    bottom: 0,
-                    selected: {
-                        '股息率1 (总股本)': false,
-                        '股息率2 (计算股本)': true
-                    }
-                },
-                grid: { left: '3%', right: '4%', bottom: '10%', containLabel: true },
+                grid: { left: '4%', right: '4%', bottom: '12%', containLabel: true },
                 xAxis: { 
                     type: 'category', 
-                    data: dates, 
                     boundaryGap: false,
-                    axisLabel: {
-                        // interval: 0,
-                        rotate: 45,       // 🎯 微微倾斜 30 度，完美容纳 T-20 的所有文字
-                        margin: 12,       // 标签和轴线的距离，防止挤压
-                        hideOverlap: true // 如果实在太窄，自动防重叠（它会优先保留最后触发的那个）
-                    }
+                    axisLabel: { rotate: 45, margin: 12, hideOverlap: true }
                 },
                 yAxis: { 
                     type: 'value', 
                     axisLabel: { formatter: '{value} %' }, 
-                    splitLine: { lineStyle: { color: themeConfigs.gridColor } }, 
-                    // 已经改好的混合兜底 Y 轴算法
-                    min: function (value) {
-                        if (value.min >= 4.0) return '4.00';
-                        return (Math.floor((value.min - 0.01) * 10) / 10).toFixed(2);
-                    },
-                    max: function (value) {
-                        if (value.max <= 5.0) return '5.00';
-                        return (Math.ceil((value.max + 0.01) * 10) / 10).toFixed(2);
-                    },
-                    // interval: 0.1,
+                    splitLine: { lineStyle: { color: themeConfigs.gridColor } }
                 },
-                series: [
-                    // 已经改好的更严谨的硬折线风格
-                    { name: '股息率1 (总股本)', type: 'line', data: dp1, smooth: false, showSymbol: true, symbolSize: 5, itemStyle: { color: '#ff4d4f' } },
-                    { name: '股息率2 (计算股本)', type: 'line', data: dp2, smooth: false, showSymbol: true, symbolSize: 5, itemStyle: { color: '#1890ff' } }
-                ]
+                series: []
             };
+
+            // 路由调度：决定渲染红利还是美债
+            if (currentTab === 'csi') {
+                document.getElementById('page-title').innerText = "红利低波100股息率趋势";
+                const csiArray = globalData.csi930955 || [];
+                
+                option.xAxis.data = csiArray.map(item => parseDate(item['日期Date']));
+                option.legend = {
+                    data: ['股息率1 (总股本)', '股息率2 (计算股本)'],
+                    bottom: 0,
+                    selected: { '股息率1 (总股本)': false, '股息率2 (计算股本)': true }
+                };
+                option.yAxis.min = function (value) {
+                    if (value.min >= 4.0) return '4.00';
+                    return (Math.floor((value.min - 0.01) * 10) / 10).toFixed(2);
+                };
+                option.yAxis.max = function (value) {
+                    if (value.max <= 5.0) return '5.00';
+                    return (Math.ceil((value.max + 0.01) * 10) / 10).toFixed(2);
+                };
+                option.series = [
+                    { name: '股息率1 (总股本)', type: 'line', data: csiArray.map(item => item['股息率1（总股本）D/P1']), smooth: false, showSymbol: true, symbolSize: 5, itemStyle: { color: '#ff4d4f' } },
+                    { name: '股息率2 (计算股本)', type: 'line', data: csiArray.map(item => item['股息率2（计算用股本）D/P2']), smooth: false, showSymbol: true, symbolSize: 5, itemStyle: { color: '#1890ff' } }
+                ];
+
+            } else if (currentTab === 'fred') {
+                document.getElementById('page-title').innerText = "美债 10 年实际利率趋势";
+                const fredArray = globalData.us10ytip || [];
+                
+                option.xAxis.data = fredArray.map(item => parseDate(item['日期Date']));
+                option.legend = { data: ['美债 10 年实际利率'], bottom: 0 };
+                
+                // 智能美债 Y 轴上下限自适应算法：完美适配任意正负数区间
+                option.yAxis.min = function (value) {
+                    if (value.min >= 1.0) return '1.00';
+                    return (Math.floor((value.min - 0.01) * 10) / 10).toFixed(2);
+                };
+                option.yAxis.max = function (value) {
+                    if (value.max <= 2.0) return '2.00';
+                    return (Math.ceil((value.max + 0.01) * 10) / 10).toFixed(2);
+                };
+                option.series = [
+                    // 🎯 精准匹配你 data.json 中的美债利率Rate 键名
+                    { name: '美债 10 年实际利率', type: 'line', data: fredArray.map(item => item['美债利率Rate']), smooth: false, showSymbol: true, symbolSize: 5, itemStyle: { color: '#52c41a' } }
+                ];
+            }
 
             myChart.setOption(option);
         }
 
+        // 🎯 核心控制器：控制标签卡的多资产专属高亮类名跃迁
+        function switchTab(tabName) {
+            if (currentTab === tabName) return;
+            currentTab = tabName;
+            
+            // 动态挂载专属高亮类名，精准响应对应图表的折线颜色
+            const tabCsi = document.getElementById('tab-csi');
+            const tabFred = document.getElementById('tab-fred');
+            
+            if (tabName === 'csi') {
+                tabCsi.classList.add('active', 'csi-style');
+                tabFred.classList.remove('active', 'fred-style');
+            } else {
+                tabCsi.classList.remove('active', 'csi-style');
+                tabFred.classList.add('active', 'fred-style');
+            }
+            
+            renderChart();
+        }
+
+        // 初始化
         fetch('data.json')
             .then(response => response.json())
             .then(data => {
-                chartData = data;
-                renderChart(chartData);
+                globalData = data;
+                updateKpiCards(globalData); 
+                renderChart();              
             });
 
         window.addEventListener('resize', () => {
@@ -216,9 +299,7 @@
         });
 
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-            if (chartData) {
-                renderChart(chartData);
-            }
+            renderChart();
         });
     </script>
 </body>
