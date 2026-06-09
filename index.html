@@ -188,11 +188,14 @@
         <div id="main"></div>
     </div>
 
-    <script {nonce}>
+<script {nonce}>
         let myChart = null;
         let globalData = null;
-        let currentTab = 'csi'; 
-        let isScrolling = false; // 🔒 防冲突互斥锁：大拇指摩擦滑动与指尖点击居中事件的绝缘体
+        
+        // 🎯 1. 核心改动：从本地缓存加载历史标签，如果没有则默认为第一个 'csi'
+        let currentTab = localStorage.getItem('selectedTab') || 'csi'; 
+        let isScrolling = false; 
+        let isInitialized = false; // 🔒 新增首屏互斥锁：防止数据未加载完时滑动监听器误判
 
         const isDarkMode = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
         const parseDate = (dateStr) => dateStr.toString().replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3');
@@ -295,10 +298,10 @@
             myChart.setOption(option);
         }
 
-        // 🎯 核心控制器：控制标签卡的多资产专属高亮类名跃迁
+        // 🎯 2. 核心改动：不仅切换样式，还要实时写入 localStorage 缓存
         function switchTab(tabName) {
-            if (currentTab === tabName) return;
             currentTab = tabName;
+            localStorage.setItem('selectedTab', tabName); // 记忆留存
             
             const tabCsi = document.getElementById('tab-csi');
             const tabFred = document.getElementById('tab-fred');
@@ -319,24 +322,32 @@
             const container = document.getElementById('tabs-container');
             const cards = document.querySelectorAll('.tab-card');
 
+            // 🎯 3. 核心改动：在 DOM 加载完后，先根据缓存的 currentTab 修正一次高亮 UI 状态
+            cards.forEach(card => {
+                const tabName = card.getAttribute('data-tab');
+                if (tabName === currentTab) {
+                    card.classList.add('active', tabName === 'csi' ? 'csi-style' : 'fred-style');
+                } else {
+                    card.classList.remove('active', 'csi-style', 'fred-style');
+                }
+            });
+
             // 交互 A：点击任一卡片 -> 精准高亮 + 平滑磁吸驱动居中
             cards.forEach(card => {
                 card.addEventListener('click', () => {
                     const tabName = card.getAttribute('data-tab');
                     if (currentTab === tabName) return;
 
-                    isScrolling = true; // 挂上互斥锁，告诉滑动监听器“这是我主动点的，别插手”
+                    isScrolling = true; // 挂上互斥锁
                     switchTab(tabName);
 
-                    // 让浏览器原生地、带有平滑阻尼动画地将此卡片居中滚动
                     card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 
-                    // 动画结束后释放互斥锁
                     setTimeout(() => { isScrolling = false; }, 400);
                 });
             });
 
-            // 交互 B：大拇指摩擦自由滑动 -> 精准识别 160px 卡片并切换对应图表
+            // 交互 B：大拇指摩擦自由滑动
             const observerOptions = {
                 root: container,
                 rootMargin: '0px -30% 0px -30%', 
@@ -344,13 +355,15 @@
             };
 
             const observer = new IntersectionObserver((entries) => {
-                // 🎯 核心修复：如果数据还没加载好(globalData为空)，或者处于点击触发的滚动中，直接拦截滑动的误判
-                if (!globalData || isScrolling) return; 
+                // 🎯 4. 核心改动：未初始化完毕或正在主动滚动时，严禁滑动监听器插手干扰
+                if (!globalData || isScrolling || !isInitialized) return; 
                 
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
                         const tabName = entry.target.getAttribute('data-tab');
-                        switchTab(tabName);
+                        if (currentTab !== tabName) {
+                            switchTab(tabName);
+                        }
                     }
                 });
             }, observerOptions);
@@ -358,13 +371,26 @@
             cards.forEach(card => observer.observe(card));
         });
 
-        // 初始化
+        // 初始化数据获取
         fetch('data.json')
             .then(response => response.json())
             .then(data => {
                 globalData = data;
                 updateKpiCards(globalData); 
-                renderChart();              
+                
+                // 🎯 5. 核心改动：数据加载后，强制将对应卡片滑块回滚居中，并解锁自由滑动
+                const activeCard = document.querySelector(`.tab-card[data-tab="${currentTab}"]`);
+                if (activeCard) {
+                    // 使用 'auto' 避免首屏闪烁，悄悄地在后台对齐
+                    activeCard.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'center' });
+                }
+                
+                renderChart(); 
+                
+                // 延迟一小会儿，确保浏览器完全渲染好布局后，再放开自由滑动监听
+                setTimeout(() => {
+                    isInitialized = true;
+                }, 100);             
             });
 
         window.addEventListener('resize', () => {
