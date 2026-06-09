@@ -56,27 +56,25 @@
         /* 2. 顶置高阶选项卡（Tabs切换卡片） */
         .tabs-container {
             display: flex;
-            justify-content: center; /* 💻 大屏 PC 端：保持整体优雅居中 */
+            justify-content: center; /* 大屏 PC 端：保持整体优雅居中 */
             gap: 15px;               /* 卡片之间的标准间距 */
             
-            /* 🎯 修复问题 1：把外边距从 25px 扩充到 32px，完美解决因 padding 挤压导致的间距变窄观感 */
-            margin-bottom: 32px; 
+            /* 🎯 优化组合拳：缩小外边距，同时大幅度放宽内边距，给下方阴影留出绝对充足的扩散空间，彻底消除切线 */
+            margin-bottom: 20px; 
+            padding: 8px 0 20px 0;   /* 👈 上、右、下、左。把下内边距拓宽到 20px 容纳发光 */
             
             /* 📱 移动端底座：超出时允许横向丝滑滑动 */
             overflow-x: auto;
             white-space: nowrap;
-            -webkit-overflow-scrolling: touch; /* 赋予 iOS 浏览器原生丝滑的滚动阻尼感 */
+            -webkit-overflow-scrolling: touch; 
             
-            /* 🎯 磁吸核武器：开启横向滚动时强行进行物理磁吸对齐（mandatory） */
+            /* 磁吸核武器：开启横向滚动时强行进行物理磁吸对齐 */
             scroll-snap-type: x mandatory;
-            
-            /* 🎯 解决上浮遮挡：上下拓宽 padding 到 8px，为卡片上浮和阴影发光留出绝对安全的高空 */
-            padding: 8px 0;
 
             /* 隐藏手机端原生横向滚动条 */
             scrollbar-width: none; /* Firefox */
         }
-        
+
         /* 隐藏横向滚动条 (Chrome / Safari) */
         .tabs-container::-webkit-scrollbar {
             display: none;
@@ -86,8 +84,12 @@
         @media (max-width: 600px) {
             .tabs-container {
                 justify-content: flex-start; /* 手机端：必须改为左对齐，才能腾出空间往右无尽滑动 */
-                padding-left: calc(50vw - 82px);  /* 👈 黄金数学公式：(50%屏幕宽) - (半张卡片宽80px + 2px边框)，确保第1张默认完美居中 */
-                padding-right: calc(50vw - 82px); /* 同理，确保最后一张卡片划到头也能完美居中，不会卡死在右边 */
+                padding-left: calc(50vw - 82px);  
+                
+                /* 🎯 优化：手机端同步放宽底部 padding 到 20px，确保手机触摸滑动时下方阴影也不被切断 */
+                padding-right: calc(50vw - 82px); 
+                padding-top: 8px;
+                padding-bottom: 20px;
             }
         }
 
